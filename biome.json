@@ -20,6 +20,14 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".git", "coverage"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      ".git",
+      "coverage",
+      "playwright-report",
+      "test-results",
+      "blob-report"
+    ]
   }
 }

@@ -6,8 +6,7 @@ on:
     branches-ignore:
       - main
     paths:
-      - ".github/copilot-instructions.md"
-      - "specs/discovery.md"
+      - "intentions/7-day-forecast.md"
 
 permissions:
   contents: read
@@ -33,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -60,19 +61,39 @@ jobs:
 
       # START: Check practical exercise
 
-      - name: Check copilot-instructions exists
-        id: check-copilot-instructions
+      - name: Check intent exists and is structured
+        id: check-request
         continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
-        with:
-          file: .github/copilot-instructions.md
+        run: node scripts/validate-sdd.mjs intent
 
-      - name: Check discovery document exists
-        id: check-discovery
-        continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          file: specs/discovery.md
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - name: Install dependencies
+        id: install
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate baseline
+        id: baseline
+        continue-on-error: true
+        run: pnpm lint && pnpm build && pnpm test
+
+      - name: Install Playwright browser
+        id: install-browser
+        continue-on-error: true
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Validate baseline E2E
+        id: e2e
+        continue-on-error: true
+        run: pnpm test:e2e
 
       - name: Update comment - step results
         uses: GrantBirki/comment@v2.1.1
@@ -85,10 +106,12 @@ jobs:
           vars: |
             step_number: 1
             results_table:
-              - description: "Verificou se .github/copilot-instructions.md existe"
-                passed: ${{ steps.check-copilot-instructions.outcome == 'success' }}
-              - description: "Verificou se specs/discovery.md existe"
-                passed: ${{ steps.check-discovery.outcome == 'success' }}
+              - description: "Preservou a Constituição e registrou a intenção"
+                passed: ${{ steps.check-request.outcome == 'success' }}
+              - description: "Validou lint, build e testes da baseline"
+                passed: ${{ steps.baseline.outcome == 'success' }}
+              - description: "Validou o E2E determinístico da baseline"
+                passed: ${{ steps.e2e.outcome == 'success' }}
 
       # END: Check practical exercise
 

@@ -6,7 +6,7 @@ on:
     branches-ignore:
       - main
     paths:
-      - "tasks/**"
+      - "tasks/weather-app-tasks.md"
 
 permissions:
   contents: read
@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -59,12 +61,30 @@ jobs:
 
       # START: Check practical exercise
 
-      - name: Check tasks file exists
-        id: check-tasks-exists
+      - name: Check tasks changed from baseline
+        id: check-tasks-diff
         continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
+        run: |
+          if git diff --quiet origin/main...HEAD -- tasks/weather-app-tasks.md; then
+            echo "As tasks não mudaram em relação à baseline"
+            exit 1
+          else
+            diff_exit=$?
+            test "$diff_exit" -eq 1 || exit "$diff_exit"
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          file: tasks/weather-app-tasks.md
+          node-version-file: ".nvmrc"
+
+      - name: Validate incremental tasks
+        id: validate-tasks
+        continue-on-error: true
+        run: pnpm validate:sdd tasks
 
       - name: Update comment - step results
         uses: GrantBirki/comment@v2.1.1
@@ -77,8 +97,10 @@ jobs:
           vars: |
             step_number: 4
             results_table:
-              - description: "Verificou se tasks/weather-app-tasks.md existe"
-                passed: ${{ steps.check-tasks-exists.outcome == 'success' }}
+              - description: "Adicionou tasks ao arquivo da baseline"
+                passed: ${{ steps.check-tasks-diff.outcome == 'success' }}
+              - description: "Rastreou CA5 com dependências e feito"
+                passed: ${{ steps.validate-tasks.outcome == 'success' }}
 
       # END: Check practical exercise
 

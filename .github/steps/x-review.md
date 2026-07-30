@@ -1,26 +1,42 @@
-## Revisão: Spec-Driven Development na Prática
+## Review
 
-_Parabéns! Você concluiu o hands-on de Spec-Driven Development construindo um Weather App completo do brief à entrega._
+_Parabéns! Você evoluiu um produto existente sem perder a intenção que já estava
+registrada._
 
-<img src="https://octodex.github.com/images/jetpacktocat.png" alt="celebrate" width=200 align=right>
+<img src="../images/jetpacktocat.png" alt="Jetpacktocat celebrando a conclusão" width="180" align="right">
 
-### O que você construiu
+Você começou com um Weather App funcional e terminou com um incremento completo.
+O valor do exercício está no diff entre os dois estados.
 
-Você percorreu o fluxo SDD completo — e tem os artefatos para provar:
+### O que você realizou
 
-- **Brief & Spec** — problema documentado e critérios de aceite testáveis (`specs/`)
-- **Plan & Tasks** — plano técnico fatiado em unidades verificáveis (`plans/`, `tasks/`)
-- **Code** — implementação guiada pelas tasks, incluindo a previsão de 7 dias (`src/`)
-- **Test, Hardening & E2E** — verificação de que a spec foi cumprida (`src/lib/*.test.ts`, `e2e/`)
-- **Iterate** — o loop de feedback que retroalimentou o plano e as tasks até todas as validações passarem (`feedback/`)
-- **Review & Ship** — review rastreável, CI que enforça SDD e deploy (`.github/`)
+- O pedido foi registrado antes da solução.
+- A mesma spec ganhou F5, a previsão diária de 7 dias, sem perder F1–F4: busca
+	de cidade, clima atual, conversão de temperatura e condições WMO.
+- O plano registrou impacto em dados, API, UI e testes.
+- Tasks pequenas conduziram duas fatias de implementação.
+- Testes determinísticos provaram o comportamento e a regressão.
+- Todo feedback vermelho, quando existiu, voltou primeiro ao Plan.
+- O pedido inicial aparece como intenção, a fonte inicial do SDD, não como
+	feedback de validação.
+- O PR reuniu intenção, decisão, execução e evidência.
 
-### O princípio que ficou
+Esse é o sentido de uma spec viva e ancorada: ela não nasce perfeita nem vira
+documentação esquecida. Ela acompanha o produto e torna cada mudança explicável.
 
-> **Cada etapa deriva da spec** — o plano a detalha, as tasks a fatiam, o código a executa e os testes a verificam. Se um comportamento não está na spec, ele não entra no código; se é um critério de aceite, existe um teste que o prova.
+### O que levar para o próximo projeto
+
+- Comece mudanças pelo estado atual, não por um documento novo ou por código.
+- Use IDs estáveis para conectar intenção, decisão, execução e evidência.
+- Trate validação vermelha como feedback de planejamento.
+- Revise o delta nas duas direções: do pedido ao teste e do código à spec.
 
 ### O que vem a seguir?
 
-- [sdd-weather-app](https://github.com/dev-pods/sdd-weather-app) — a versão completa, com 11 módulos e 8h de conteúdo
-- Leve o SDD para ferramentas reais: [spec-kit](https://github.com/github/spec-kit), [OpenSpec](https://github.com/Fission-AI/OpenSpec) e [BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)
-- [GitHub Skills](https://skills.github.com) — outros exercícios hands-on
+- Aplique o mesmo fluxo a uma mudança ambígua do seu produto e compare o tempo
+	de review quando o PR contém a cadeia completa de evidências.
+- Explore o [spec-kit](https://github.com/github/spec-kit), o
+	[OpenSpec](https://github.com/Fission-AI/OpenSpec) e o
+	[BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD).
+- Releia o PR final e identifique quais decisões poderiam ser automatizadas sem
+	reduzir a qualidade da revisão humana.

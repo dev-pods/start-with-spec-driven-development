@@ -6,7 +6,7 @@ on:
     branches-ignore:
       - main
     paths:
-      - "src/**"
+      - "src/components/WeatherCard.test.tsx"
 
 permissions:
   contents: read
@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -71,25 +73,38 @@ jobs:
       - name: Install dependencies
         id: install
         continue-on-error: true
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
 
-      - name: Check testes multinível existem
-        id: check-tests
+      - name: Check presentation slice changed
+        id: check-presentation-diff
         continue-on-error: true
         run: |
-          missing=""
-          for f in src/services/weather.test.ts src/hooks/useWeather.test.ts src/components/WeatherCard.test.tsx; do
-            [ -f "$f" ] || missing="$missing $f"
-          done
-          if [ -n "$missing" ]; then
-            echo "Testes multinível não encontrados (rede/estado/componente):$missing"
-            exit 1
-          fi
+          require_changed() {
+            if git diff --quiet origin/main...HEAD -- "$1"; then
+              echo "$1 não mudou em relação à baseline"
+              return 1
+            else
+              diff_exit=$?
+              test "$diff_exit" -eq 1 || return "$diff_exit"
+            fi
+          }
+          require_changed src/components/WeatherCard.tsx
+          require_changed src/components/WeatherCard.test.tsx
+
+      - name: Test WeatherCard contract
+        id: component-test
+        continue-on-error: true
+        run: pnpm test src/components/WeatherCard.test.tsx
 
       - name: Test
         id: test
         continue-on-error: true
         run: pnpm test
+
+      - name: Build
+        id: build
+        continue-on-error: true
+        run: pnpm build
 
       - name: Update comment - step results
         uses: GrantBirki/comment@v2.1.1
@@ -102,12 +117,14 @@ jobs:
           vars: |
             step_number: 6
             results_table:
-              - description: "Instalou as dependências (pnpm install)"
-                passed: ${{ steps.install.outcome == 'success' }}
-              - description: "Cobriu rede, estado e componente com testes"
-                passed: ${{ steps.check-tests.outcome == 'success' }}
-              - description: "Executou toda a suíte de testes (pnpm test)"
+              - description: "Evoluiu WeatherCard e seu teste"
+                passed: ${{ steps.check-presentation-diff.outcome == 'success' }}
+              - description: "Validou CA5 no nível de componente"
+                passed: ${{ steps.component-test.outcome == 'success' }}
+              - description: "Preservou a suíte baseline"
                 passed: ${{ steps.test.outcome == 'success' }}
+              - description: "Compilou a apresentação integrada"
+                passed: ${{ steps.build.outcome == 'success' }}
 
       # END: Check practical exercise
 

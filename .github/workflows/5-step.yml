@@ -6,7 +6,7 @@ on:
     branches-ignore:
       - main
     paths:
-      - "src/**"
+      - "src/services/weather.test.ts"
 
 permissions:
   contents: read
@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -71,20 +73,28 @@ jobs:
       - name: Install dependencies
         id: install
         continue-on-error: true
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
 
-      - name: Check app foi construído
-        id: check-app
+      - name: Check contract slice changed
+        id: check-contract-diff
         continue-on-error: true
         run: |
-          missing=""
-          for f in src/services/weather.ts src/hooks/useWeather.ts src/components/SearchBar.tsx src/components/WeatherCard.tsx; do
-            [ -f "$f" ] || missing="$missing $f"
+          changed=0
+          for file in src/types/weather.ts src/services/weather.ts src/services/weather.test.ts; do
+            if git diff --quiet origin/main...HEAD -- "$file"; then
+              continue
+            else
+              diff_exit=$?
+              test "$diff_exit" -eq 1 || exit "$diff_exit"
+              changed=$((changed + 1))
+            fi
           done
-          if [ -n "$missing" ]; then
-            echo "Arquivos do app não encontrados (o agente precisa construí-los no Step 5):$missing"
-            exit 1
-          fi
+          test "$changed" -eq 3
+
+      - name: Test service contract
+        id: service-test
+        continue-on-error: true
+        run: pnpm test src/services/weather.test.ts
 
       - name: Build
         id: build
@@ -104,9 +114,11 @@ jobs:
             results_table:
               - description: "Instalou as dependências (pnpm install)"
                 passed: ${{ steps.install.outcome == 'success' }}
-              - description: "Construiu o app a partir da spec (services, hook, componentes)"
-                passed: ${{ steps.check-app.outcome == 'success' }}
-              - description: "Compilou o app completo construído a partir da spec (pnpm build)"
+              - description: "Evoluiu tipo, serviço e teste em relação à baseline"
+                passed: ${{ steps.check-contract-diff.outcome == 'success' }}
+              - description: "Validou o contrato de serviço da F5"
+                passed: ${{ steps.service-test.outcome == 'success' }}
+              - description: "Compilou a aplicação com o contrato evoluído"
                 passed: ${{ steps.build.outcome == 'success' }}
 
       # END: Check practical exercise

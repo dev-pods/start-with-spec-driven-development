@@ -2,12 +2,12 @@ name: Step 9 # Last step
 
 on:
   workflow_dispatch:
-  push:
-    branches-ignore:
+  pull_request:
+    branches:
       - main
+    types: [opened, reopened, synchronize]
     paths:
-      - ".github/workflows/sdd-guard.yml"
-      - ".github/workflows/deploy-pages.yml"
+      - "review/7-day-forecast.md"
 
 permissions:
   contents: read
@@ -33,6 +33,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -60,20 +62,6 @@ jobs:
 
       # START: Check practical exercise
 
-      - name: Check SDD guard workflow exists
-        id: check-sdd-guard
-        continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
-        with:
-          file: .github/workflows/sdd-guard.yml
-
-      - name: Check deploy workflow exists
-        id: check-deploy
-        continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
-        with:
-          file: .github/workflows/deploy-pages.yml
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
@@ -83,15 +71,45 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "pnpm"
 
+      - name: Check structured review evidence
+        id: check-review
+        continue-on-error: true
+        run: pnpm validate:sdd review
+
       - name: Install dependencies
         id: install
         continue-on-error: true
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: pnpm lint
 
       - name: Build
         id: build
         continue-on-error: true
         run: pnpm build
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: pnpm test
+
+      - name: Install Playwright browsers
+        id: install-browsers
+        continue-on-error: true
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        id: e2e
+        continue-on-error: true
+        run: pnpm test:e2e
+
+      - name: Validate SDD traceability
+        id: traceability
+        continue-on-error: true
+        run: pnpm validate:sdd full
 
       - name: Update comment - step results
         uses: GrantBirki/comment@v2.1.1
@@ -104,14 +122,16 @@ jobs:
           vars: |
             step_number: 9
             results_table:
-              - description: "Verificou se .github/workflows/sdd-guard.yml existe"
-                passed: ${{ steps.check-sdd-guard.outcome == 'success' }}
-              - description: "Verificou se .github/workflows/deploy-pages.yml existe"
-                passed: ${{ steps.check-deploy.outcome == 'success' }}
-              - description: "Instalou as dependências (pnpm install)"
-                passed: ${{ steps.install.outcome == 'success' }}
-              - description: "Compilou o projeto (pnpm build)"
+              - description: "Registrou review com evidências CA5"
+                passed: ${{ steps.check-review.outcome == 'success' }}
+              - description: "Lint passou"
+                passed: ${{ steps.lint.outcome == 'success' }}
+              - description: "Build passou"
                 passed: ${{ steps.build.outcome == 'success' }}
+              - description: "Testes e E2E passaram"
+                passed: ${{ steps.test.outcome == 'success' && steps.e2e.outcome == 'success' }}
+              - description: "Rastreabilidade F5 está completa"
+                passed: ${{ steps.traceability.outcome == 'success' }}
 
       # END: Check practical exercise
 

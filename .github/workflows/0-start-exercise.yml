@@ -22,7 +22,7 @@ jobs:
     uses: skills/exercise-toolkit/.github/workflows/start-exercise.yml@v0.9.1
     with:
       exercise-title: "Spec-Driven Development - Construindo com Intenção"
-      intro-message: "Aprenda a metodologia SDD construindo um Weather App real do brief ao deploy. 9 steps, cerca de 1 hora."
+      intro-message: "Aprenda a metodologia SDD evoluindo um Weather App real da intenção ao deploy. 9 steps, cerca de 1 hora."
 
   post_next_step_content:
     name: Post next step content
@@ -62,8 +62,11 @@ jobs:
           issue-number: ${{ env.ISSUE_NUMBER }}
           file: exercise-toolkit/markdown-templates/step-feedback/watching-for-progress.md
 
-      - name: Enable next step workflow
+      - name: Reset step workflow state
         run: |
+          for step in {1..9}; do
+            gh workflow disable "Step $step" || true
+          done
           gh workflow enable "Step 1"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

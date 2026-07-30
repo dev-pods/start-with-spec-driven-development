@@ -1,161 +1,308 @@
-## Step 1: Setup & Por que não começar pelo código
+## Step 1: Intenção — Execute a baseline e registre a intenção
 
-> Cenário: você recebe uma tarefa — "construa um app de previsão do tempo". O impulso natural é abrir o editor e começar a digitar. Mas o que acontece quando você descobre, na hora do code review, que o cliente queria mostrar a previsão de 7 dias e você construiu apenas o dia atual? **Spec-Driven Development começa com uma pergunta: o que exatamente precisa ser construído e por quê?**
+> Você não recebeu um repositório vazio. Antes de aceitar uma mudança, prove o
+> que já funciona e localize os contratos que descrevem esse comportamento.
 
-### Conceito
+<img src="../images/inspectocat.png" alt="Inspectocat examinando o projeto" width="140" align="right">
 
-Times costumam começar pelo código e só descobrem no code review que construíram a coisa errada — e cada correção tardia custa retrabalho. O SDD inverte a ordem: antes de escrever qualquer linha, você prepara um ambiente reproduzível e captura o que já se sabe (e o que ainda não se sabe) sobre o problema. O diagrama abaixo contrasta os dois caminhos — o ciclo reativo de código→bug→código e o fluxo do SDD, em que a verificação vem por último justamente porque a intenção foi definida primeiro.
+Uma pessoa usuária pediu a previsão dos próximos 7 dias. A reação mais rápida
+seria abrir o componente e começar a programar. Neste exercício, você fará algo
+mais importante primeiro: entender o produto que já existe.
 
-#### Sem SDD
+### O projeto que você está evoluindo
 
-```mermaid
-flowchart LR
-    A1[Ideia] --> B1[Código] --> C1[Retrabalho]
-    C1 -.-> A1
+O Weather App é uma aplicação web em React e TypeScript que usa a Open-Meteo,
+sem API key. A pessoa usuária busca uma cidade, escolhe uma localização e recebe
+o clima atual com temperatura, sensação térmica, condição WMO, vento e umidade.
 
-    classDef semSdd fill:#ffebee,stroke:#c62828,color:#7f0000
-    class A1,B1,C1,D1,E1 semSdd
-```
-
-#### Com SDD
+O produto já possui uma arquitetura pequena, mas completa:
 
 ```mermaid
 flowchart LR
-    A2[Ideia] --> B2[Brief] --> C2[Spec] --> D2[Plan] --> E2[Tasks] --> F2[Código] --> G2[Verificação]
+   subgraph interface["Interface React"]
+      direction LR
+      A[Busca e seleção] --> B[App] --> C[Clima atual]
+   end
 
-    classDef comSdd fill:#2e7d32,stroke:#1b5e20,color:#ffffff
-    class A2,B2,C2,D2,E2,F2,G2 comSdd
+   subgraph dominio["Estado e domínio"]
+      direction LR
+      D[useWeather] --> E[WeatherService]
+   end
+
+   subgraph integracoes["Open-Meteo"]
+      direction TB
+      F[Geocoding API]
+      G[Forecast API]
+   end
+
+   B --> D
+   E --> F
+   E --> G
+
+   classDef interfaceNode fill:#1565c0,stroke:#0d47a1,color:#ffffff
+   classDef domainNode fill:#6a1b9a,stroke:#4a148c,color:#ffffff
+   classDef contextNode fill:#455a64,stroke:#263238,color:#ffffff
+
+   class A,B,C interfaceNode
+   class D,E domainNode
+   class F,G contextNode
+
+   style interface fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+   style dominio fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+   style integracoes fill:#eceff1,stroke:#455a64,color:#263238
 ```
+
+A baseline inclui interface acessível, serviço externo isolado, estados de
+carregamento e erro, testes unitários e de componente, além de um E2E com APIs
+interceptadas. O exercício não é construir outro app: é evoluir esse sistema
+para apresentar também a previsão diária dos próximos 7 dias.
+
+### Os artefatos do exercício
+
+| Artefato | Responsabilidade |
+|---|---|
+| `constitution.md` | Define princípios permanentes e a ordem de evolução |
+| `intentions/*.md` | Registra a intenção recebida antes da evolução da especificação |
+| `feedback/*.md` | Registra resultados observados durante a validação |
+| `specs/weather-app-spec.md` | Define comportamentos e critérios de aceite |
+| `plans/weather-app-plan.md` | Registra impacto, decisões e estratégia de testes |
+| `tasks/weather-app-tasks.md` | Fatia o plano em trabalho dependente e verificável |
+| Código e testes | Implementam o comportamento e fornecem evidência |
+
+A **Constituição** é estável e governa todas as mudanças. Neste step,
+`intentions/7-day-forecast.md` registra a intenção que inicia o SDD e compõe o
+feedforward antes da execução. No Step 8, `feedback/7-day-forecast-loop.md`
+preservará resultados observados e eventuais decisões de replanejamento. Nenhum
+deles substitui a especificação: entram no SDD em momentos diferentes.
+
+### 📖 Teoria: mudanças começam pelo estado atual
+
+SDD não significa criar documentos do zero para cada pedido. Em um produto vivo,
+a primeira tarefa é ancorar-se no estado atual: especificação, planejamento, tarefas, código e
+testes precisam contar a mesma história.
+
+Essa leitura inicial evita dois erros comuns:
+
+- implementar novamente algo que a baseline já resolve;
+- tomar uma decisão técnica antes de esclarecer o resultado esperado.
+
+> [!NOTE]
+> A branch `main` é o nosso **antes**. Ela contém F1–F4: busca de cidade, clima
+> atual, conversão de temperatura e condições climáticas WMO. Ao final, o diff
+> da branch `feature/7-day-forecast` mostrará apenas a evolução necessária para
+> F5: previsão diária dos próximos 7 dias.
 
 ### Objetivo
 
-Preparar o ambiente SDD e registrar o discovery — a base sobre a qual a spec será construída. São dois artefatos, cada um com um papel claro:
-
-| Artefato | Por que existe |
+| Evidência | Por que existe |
 |---|---|
-| `.github/copilot-instructions.md` | Ensina as regras do SDD ao assistente de IA do projeto |
-| `specs/discovery.md` | Captura contexto, problema e restrições **antes** da spec formal |
+| `constitution.md` | Explicita as regras que nenhum incremento pode contornar |
+| App aberto no navegador | Torna visível o estado **antes** da evolução |
+| Baseline verde | Confirma que uma falha futura foi introduzida pelo incremento |
+| `intentions/7-day-forecast.md` | Explicita o resultado desejado sem prescrever solução |
+| Branch `feature/7-day-forecast` | Mantém visível o antes e depois da mudança |
 
-### Mãos à obra: Configure o ambiente SDD
+### Pedido recebido
 
-**Parte A — Crie sua branch de trabalho**
+> “Além do clima atual, preciso enxergar os próximos 7 dias para planejar minha
+> semana. Para cada dia, quero condição climática, máxima e mínima.”
 
-Os workflows de validação deste exercício disparam em push para qualquer branch **exceto** `main` — então todo o exercício (Steps 1 a 8) acontece em uma única branch, criada agora e reutilizada até o Step 9, quando ela é integrada em `main` via Pull Request.
+Ainda não transforme isso em solução. Primeiro investigue o pedido contra a
+baseline, valide as evidências e só então registre o problema e o resultado
+esperado sem decidir componentes, tipos ou parâmetros de API.
 
-1. Crie a branch:
+> [!IMPORTANT]
+> Este não é um fluxo de vibe coding. A intenção é fornecida pelo exercício e
+> copiada sem geração por LLM. O trabalho começa por compreender essa entrada e
+> confrontá-la com a baseline; a IA só será usada depois, sob artefatos e limites
+> explícitos.
 
-   ```bash
-   git checkout -b weather-app
-   ```
+### ⌨️ Atividade: inspecione antes de propor
 
-2. A partir daqui, todos os commits e `git push` deste exercício acontecem na branch `weather-app` — não volte para `main` até o Step 9.
-
-**Parte B — Crie as instruções SDD para o Copilot**
-
-Este arquivo é lido automaticamente pelo Copilot e faz o assistente respeitar a ordem `spec → plan → tasks → code`. Ajuste o conteúdo à vontade — o importante é registrar as regras do projeto.
-
-1. Crie o arquivo `.github/copilot-instructions.md` com o seguinte conteúdo:
-
-   ```markdown
-   # Instruções SDD para GitHub Copilot
-
-   ## Princípio fundamental
-   Neste projeto, seguimos Spec-Driven Development. O código é a última etapa, não a primeira.
-
-   ## Antes de gerar código, sempre verifique:
-   - Existe uma spec aprovada em `specs/`?
-   - Existe um plano técnico em `plans/`?
-   - As tasks estão definidas em `tasks/`?
-
-   ## Regras de geração de código
-   - Todo código deve rastrear-se a um critério de aceite na spec
-   - Nenhuma funcionalidade sem spec; nenhum teste sem critério de aceite
-   - Prefira funções puras e tipagem estrita (TypeScript strict mode)
-   - Documente decisões de design, não apenas o "como"
-
-   ## Stack do projeto
-   - React 18 + TypeScript strict + Vite
-   - Vitest + Testing Library (unit/integration)
-   - Playwright (E2E)
-   - Biome (lint/format)
-   - Tailwind CSS
-
-   ## API
-   - Open-Meteo (geocoding + forecast, sem API key)
-   - Endpoints: geocoding-api.open-meteo.com e api.open-meteo.com
-   ```
-
-**Parte C — Crie o Discovery Document**
-
-O discovery separa o que já sabemos das perguntas em aberto. Ele fica em `specs/` junto da spec formal do Step 2, mas **não é a spec** — é o documento que responde: "o que sabemos, o que não sabemos, e o que precisamos descobrir antes de especificar?" Repare como cada pergunta em aberto aqui vira uma decisão explícita na spec do próximo step.
-
-1. Crie a pasta `specs/` na raiz do repositório.
-2. Crie o arquivo `specs/discovery.md` com o seguinte conteúdo:
-
-   ```markdown
-   # Discovery: Weather App
-
-   ## Contexto
-   Exercício de Spec-Driven Development usando um aplicativo de previsão do tempo como domínio.
-
-   ## Problema a resolver
-   Usuários precisam consultar rapidamente a previsão do tempo para qualquer cidade do mundo,
-   sem precisar criar conta ou fornecer localização automaticamente.
-
-   ## Restrições conhecidas
-   - Sem backend próprio (app estático, deploy em GitHub Pages)
-   - Sem API key (usar Open-Meteo, que é gratuito e sem autenticação)
-   - Tecnologia: React + TypeScript + Vite
-
-   ## Perguntas em aberto (a responder na Spec)
-   - [ ] Quantos dias de previsão mostrar?
-   - [ ] Como lidar com múltiplos resultados para o mesmo nome de cidade?
-   - [ ] A temperatura deve ser exibida em Celsius, Fahrenheit ou ambas?
-   - [ ] Como tratar erros de rede?
-
-   ## Stakeholders
-   - Learner (desenvolvedor aprendendo SDD)
-   - Instrutor (quem valida o exercício)
-
-   ## Critérios mínimos de sucesso
-   - Usuário consegue buscar cidade por nome
-   - Usuário vê temperatura atual e condição climática
-   - App funciona sem autenticação
-   ```
-
-3. Faça commit e push dos dois arquivos:
+1. Crie a branch usada durante todo o exercício:
 
    ```bash
-   git add .github/copilot-instructions.md specs/discovery.md
-   git commit -m "step 1: setup SDD environment and discovery document"
-   git push -u origin weather-app
+   git checkout -b feature/7-day-forecast
+   ```
+
+2. Instale as dependências:
+
+   ```bash
+   pnpm install
+   pnpm exec playwright install --with-deps chromium
+   ```
+
+   O segundo comando instala o navegador usado pelo teste E2E. Ele é necessário
+   apenas na primeira execução ou quando o cache do Playwright for removido.
+
+3. Suba o Weather App para conhecer visualmente o **antes**:
+
+   ```bash
+   pnpm dev
+   ```
+
+   O Vite usa por padrão a porta `5173` e mostra no terminal uma saída parecida
+   com esta:
+
+   ```text
+   Local: http://localhost:5173/
+   ```
+
+   Abra a URL exibida no terminal. Se a porta `5173` já estiver ocupada, o Vite
+   selecionará outra, como `5174`; use sempre o endereço que ele informar.
+
+   > [!TIP]
+   > O comando mantém o servidor em execução. Abra um segundo terminal para
+   > continuar o exercício ou pressione `Ctrl+C` depois da inspeção. Em um
+   > Codespace, abra a URL encaminhada pela notificação ou pela aba **Ports**.
+
+   No navegador, confirme o estado atual do produto:
+
+   - busque uma cidade;
+   - selecione um resultado;
+   - confira temperatura, sensação térmica, condição, vento e umidade;
+   - observe que ainda não existe uma seção com os próximos 7 dias.
+
+4. Com o servidor encerrado ou em outro terminal, execute a baseline automatizada:
+
+   ```bash
+   pnpm lint
+   pnpm build
+   pnpm test
+   pnpm test:e2e
+   ```
+
+5. Leia, nesta ordem:
+   - `constitution.md`
+   - `specs/weather-app-spec.md`
+   - `plans/weather-app-plan.md`
+   - `tasks/weather-app-tasks.md`
+   - `src/types/weather.ts`
+   - `src/services/weather.ts`
+   - `src/components/WeatherCard.tsx`
+
+6. No Explorer do VS Code, crie manualmente a pasta `intentions`. Dentro dela,
+    crie o arquivo `7-day-forecast.md` e copie todo o conteúdo abaixo:
+
+    ```markdown
+    # Intenção: planejamento semanal com previsão do tempo
+
+    ## Intenção
+
+    Evoluir o Weather App para ajudar uma pessoa a planejar os próximos dias
+    depois de escolher uma cidade, preservando a consulta de clima atual que já
+    existe.
+
+    ## Valor esperado
+
+    A pessoa usuária consegue tomar decisões para a semana sem repetir buscas ou
+    consultar outra aplicação para conhecer a tendência do tempo.
+
+    ## Resultados desejados
+
+    - Depois de buscar e selecionar uma cidade, a pessoa usuária continua vendo
+       o clima atual.
+    - A mesma experiência apresenta a previsão dos próximos 7 dias para a cidade
+       selecionada.
+    - Cada dia apresenta a condição climática e as temperaturas máxima e mínima.
+
+    ## Restrições
+
+    - A intenção descreve resultados observáveis, não componentes, tipos,
+       endpoints ou parâmetros de API.
+    - O comportamento atual deve ser preservado durante a evolução.
+    - Previsão horária, cidades favoritas e notificações não fazem parte deste
+       pedido.
+
+    ## Dúvidas
+
+    - Como a seção de previsão será identificada de forma acessível?
+    - Como datas e unidades serão apresentadas de modo consistente com o produto
+       atual?
+    ```
+
+    Não use o terminal nem delegue essa criação ao Copilot. O conteúdo visível no
+    lesson é a entrada canônica do hands-on; o copy/paste mantém essa entrada
+    igual para todas as pessoas.
+
+7. Leia `intentions/7-day-forecast.md` e compare-o manualmente com a baseline:
+
+   - o clima atual já atende toda a intenção ou existe um delta observável?
+   - quais resultados foram pedidos explicitamente?
+   - quais decisões técnicas ainda não foram tomadas?
+   - quais dúvidas devem permanecer abertas para a especificação ou o planejamento?
+
+   Não complemente o arquivo com uma solução. A intenção registra **POR QUE** e
+   **qual resultado** é desejado; a especificação transformará isso em comportamento
+   verificável no Step 2.
+
+8. Revise o arquivo copiado. Ele deve explicar o valor para a pessoa usuária sem
+   prescrever JSX, interfaces ou uma implementação final.
+
+   Pergunte a si mesmo:
+
+   - O texto descreve **POR QUE** sete dias são úteis?
+   - As restrições vieram do pedido ou foram inventadas durante a análise?
+   - As dúvidas ainda abertas estão visíveis?
+   - O impacto aponta para arquivos que realmente existem?
+
+9. Valide a intenção:
+
+   ```bash
+   pnpm validate:sdd intent
+   ```
+
+10. Faça commit e push:
+
+   ```bash
+   git add intentions/7-day-forecast.md
+   git commit -m "step 1: record seven-day forecast intent"
+   git push -u origin feature/7-day-forecast
    ```
 
 > [!IMPORTANT]
-> O workflow de validação verificará se os arquivos existem. Certifique-se de incluir todos no commit.
+> O workflow valida a estrutura e o escopo da intenção e executa a baseline.
+> Neste step, a entrada deve permanecer como fornecida; interpretação e
+> refinamento começam na especificação. Alterar especificação ou código agora quebra a ordem do
+> exercício.
 
 ### Checkpoint
 
-O Step 1 é aprovado quando estes arquivos existem no repositório:
+- [ ] O app foi aberto e o estado **antes** foi inspecionado no navegador.
+- [ ] A Constituição foi lida e seus princípios orientam a análise.
+- [ ] A baseline está verde.
+- [ ] A intenção explica o resultado desejado sem depender do histórico do chat.
+- [ ] A intenção foi comparada manualmente com a baseline.
+- [ ] Nenhum artefato posterior à intenção foi alterado ainda.
 
-- [ ] `.github/copilot-instructions.md`
-- [ ] `specs/discovery.md`
-
-Só a existência é verificada — o conteúdo é seu ponto de partida, não uma resposta fixa. Nos próximos steps, além dos arquivos, o workflow passa a checar também seções e testes específicos.
+O workflow valida estrutura e baseline, não um texto pronto.
 
 ### Em outras ferramentas
 
-| Ferramenta | Como aborda o setup inicial |
+| Ferramenta | Como representa esta etapa |
 |---|---|
-| **spec-kit** | Usa `/specify` para iniciar o processo; cria automaticamente a pasta `.specify/` com templates de spec |
-| **OpenSpec** | O repositório de specs fica em `openspec/specs/`; o discovery equivale a uma "change proposal" inicial |
-| **BMAD-METHOD** | O agente "Analyst" conduz o discovery em conversas estruturadas, produzindo um "Project Brief" antes da spec |
+| **spec-kit** | Constituição e contexto existente orientam a clarificação inicial |
+| **OpenSpec** | Uma proposta registra a mudança antes dos deltas de spec |
+| **BMAD-METHOD** | O contexto inicial organiza necessidade, valor e restrições |
 
 <details>
-<summary>Problemas?</summary><br/>
+<summary>Having trouble? 🤷</summary><br/>
 
-- **"git push falhou"**: certifique-se de que você está na branch `weather-app` (criada na Parte A) e que tem permissão de escrita no repositório.
-- **"O workflow não disparou"**: vá em Actions e verifique se o workflow "Step 1" está habilitado. Se não estiver, aguarde o Step 0 terminar de configurar o exercício.
-- **Arquivos não aparecem no repositório**: certifique-se de ter feito `git add` para os dois arquivos antes do commit.
+- **A branch já existe**: use `git switch feature/7-day-forecast` e continue nela.
+- **A porta `5173` está ocupada**: não encerre outro processo sem necessidade;
+   abra a URL alternativa exibida pelo Vite.
+- **A página não abre em um Codespace**: confira se a porta do Vite aparece na
+   aba **Ports** e abra o endereço encaminhado por ela.
+- **O terminal parece travado após `pnpm dev`**: esse é o comportamento esperado
+   de um servidor. Use outro terminal ou pressione `Ctrl+C` para encerrá-lo.
+- **A baseline não está verde**: não avance. Registre o comando e a mensagem de
+   erro; primeiro confirme se dependências e navegador do Playwright estão
+   instalados.
+- **A pasta ou o arquivo não aparece no Explorer**: confirme que você criou
+   `intentions/7-day-forecast.md` na raiz do repositório, não dentro de `.github`.
+- **O workflow não iniciou**: confirme que a branch atual não é `main` e que
+   `intentions/7-day-forecast.md` está no commit. O gatilho aceita qualquer
+   branch diferente de `main`; `feature/7-day-forecast` é a branch adotada para
+   manter o exercício e o PR consistentes.
 
 </details>

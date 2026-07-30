@@ -17,7 +17,9 @@
     "check": "biome check --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "validate:sdd": "node scripts/validate-sdd.mjs",
+    "validate:workflows": "node scripts/validate-workflow-chain.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

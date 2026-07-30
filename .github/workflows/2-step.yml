@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -59,36 +61,30 @@ jobs:
 
       # START: Check practical exercise
 
-      - name: Check spec exists
-        id: check-spec-exists
+      - name: Check spec changed from baseline
+        id: check-spec-diff
         continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
-        with:
-          file: specs/weather-app-spec.md
+        run: |
+          if git diff --quiet origin/main...HEAD -- specs/weather-app-spec.md; then
+            echo "A spec não mudou em relação à baseline"
+            exit 1
+          else
+            diff_exit=$?
+            test "$diff_exit" -eq 1 || exit "$diff_exit"
+          fi
 
-      - name: Check for "Critérios de Aceite"
-        id: check-acceptance-criteria
-        continue-on-error: true
-        uses: skills/action-keyphrase-checker@v1
-        with:
-          text-file: specs/weather-app-spec.md
-          keyphrase: "Critérios de Aceite"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Check for "Escopo"
-        id: check-scope
-        continue-on-error: true
-        uses: skills/action-keyphrase-checker@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          text-file: specs/weather-app-spec.md
-          keyphrase: "Escopo"
+          node-version-file: ".nvmrc"
 
-      - name: Check for "Fora de escopo"
-        id: check-out-of-scope
+      - name: Validate spec anchors
+        id: validate-spec
         continue-on-error: true
-        uses: skills/action-keyphrase-checker@v1
-        with:
-          text-file: specs/weather-app-spec.md
-          keyphrase: "Fora de escopo"
+        run: pnpm validate:sdd spec
 
       - name: Update comment - step results
         uses: GrantBirki/comment@v2.1.1
@@ -101,14 +97,10 @@ jobs:
           vars: |
             step_number: 2
             results_table:
-              - description: "Verificou se specs/weather-app-spec.md existe"
-                passed: ${{ steps.check-spec-exists.outcome == 'success' }}
-              - description: "Verificou a seção 'Critérios de Aceite'"
-                passed: ${{ steps.check-acceptance-criteria.outcome == 'success' }}
-              - description: "Verificou a seção 'Escopo'"
-                passed: ${{ steps.check-scope.outcome == 'success' }}
-              - description: "Verificou a seção 'Fora de escopo'"
-                passed: ${{ steps.check-out-of-scope.outcome == 'success' }}
+              - description: "Evoluiu a spec em relação à baseline"
+                passed: ${{ steps.check-spec-diff.outcome == 'success' }}
+              - description: "Preservou âncoras e adicionou F5/CA5"
+                passed: ${{ steps.validate-spec.outcome == 'success' }}
 
       # END: Check practical exercise
 

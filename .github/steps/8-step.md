@@ -1,215 +1,191 @@
-## Step 8: Iterate — O Loop de Feedback
+## Step 8: Handoff de Feedback — Replaneje o feedback até tudo ficar verde
 
-> Você tem build, testes e E2E. Mas em SDD real, a primeira implementação **quase nunca** passa em tudo de primeira — e tudo bem. O que separa um processo maduro de um caótico é ter um **loop explícito**: quando uma validação fica vermelha, o feedback é registrado, o plano é reajustado e o agente reimplementa — até tudo ficar verde. É esse loop que você formaliza agora, antes de fazer o review e o ship.
+> Agora execute todas as validações. O resultado decide o próximo caminho, mas
+> qualquer caminho vermelho entra novamente pelo planejamento.
 
-### Conceito
+<img src="../images/inflatocat.png" alt="Inflatocat durante a etapa de validação" width="140" align="right">
 
-Até aqui o fluxo pareceu linear: spec → plano → tasks → código → testes. Mas na prática ele é **cíclico**. Um teste que reprova, um E2E que quebra ou um build que falha não é um "erro no fim do processo" — é **feedback** que deveria voltar para o plano e para as tasks, não ser remendado direto no código.
+Uma primeira implementação pode passar ou falhar. O aprendizado deste step não
+depende de fabricar um defeito: ele está em tratar o resultado como evidência e
+tomar a próxima decisão de forma rastreável.
 
-O que torna esse loop confiável é registrá-lo. Cada iteração responde: *qual validação reprovou? qual critério de aceite foi afetado? a causa está na spec, no plano, na task ou no código? o que foi ajustado?* Esse log vivo é o `feedback.md` — o mesmo papel que o feedback estruturado tem no spec-kit, onde o resultado de uma validação retroalimenta o `/plan` e o `/implement`.
+### 📖 Teoria: feedback é entrada de planejamento
+
+O loop não é “teste falhou, edite até passar”. É uma decisão rastreável:
 
 ```mermaid
-flowchart TD
-    Impl[Agente implementa / corrige] --> Val[Roda validações:<br/>build · test · e2e]
-    Val --> Q{Tudo verde?}
-    Q -->|Sim| Ship[Step 9: Review & Ship]
-    Q -->|Não| FB[Registra em feedback.md:<br/>o que reprovou + CA afetado]
-    FB --> Rep[Reativa plan.agent.md:<br/>ajusta plano/tasks a partir do feedback]
-    Rep --> Impl
+flowchart LR
+   subgraph validacao["Validação"]
+      direction LR
+      A[Executar checks] --> B{Tudo verde?}
+   end
 
-    classDef loop fill:#fff3e0,stroke:#ef6c00,color:#e65100
-    class Impl,Val,Q,FB,Rep loop
-    classDef done fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    class Ship done
+   subgraph entrega["Pronto para entrega"]
+      C[Review]
+   end
+
+   subgraph iteracao["Feedback e replanejamento"]
+      direction LR
+      D[Registrar sintoma] --> E[Planning agent]
+      E --> F[Atualizar artefatos] --> G[Reimplementar]
+   end
+
+   B -->|Sim| C
+   B -->|Não| D
+    G --> A
+
+   classDef testingNode fill:#ef6c00,stroke:#e65100,color:#ffffff
+   classDef iterateNode fill:#f9a825,stroke:#f57f17,color:#000000
+   classDef releaseNode fill:#2e7d32,stroke:#1b5e20,color:#ffffff
+
+   class A,B testingNode
+   class D,E,F,G iterateNode
+   class C releaseNode
+
+   style validacao fill:#fff3e0,stroke:#ef6c00,color:#e65100
+   style iteracao fill:#fffde7,stroke:#f9a825,color:#f57f17
+   style entrega fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
-> [!NOTE]
-> Repare **onde o feedback entra**: ele volta para o `plan.agent.md` (Step 3), não direto para o código. É aqui que o agente de planejamento — criado lá atrás e até agora só usado como formato — ganha seu papel real: **replanejar a partir do que as validações revelaram**. Corrigir no código sem atualizar plano/tasks faz a spec e a implementação divergirem em silêncio.
+Não fabrique uma falha. Se tudo passar na primeira execução, registre uma
+iteração verde e siga. Se houver vermelho, o log deve mostrar a volta ao Plan.
+
+Existem dois caminhos legítimos:
+
+| Resultado | Próxima ação |
+|---|---|
+| Tudo verde | Registrar evidências e preparar o review |
+| Alguma validação vermelha | Registrar sintoma, replanejar, atualizar derivados e revalidar |
+
+> [!CAUTION]
+> Não transforme uma mensagem de teste em instrução de implementação. Primeiro
+> descubra se o problema está na spec, no plano, na task, no código ou no próprio
+> teste.
 
 ### Objetivo
 
-Formalizar o loop de implementação com um artefato de feedback e usar o `plan.agent.md` em **modo re-planejamento**. Ao final, `feedback.md` registra o estado das validações e as iterações feitas, e build + testes + E2E passam todos.
-
 | Artefato | Por que existe |
 |---|---|
-| `feedback/weather-app-feedback.md` | Log vivo do loop: cada validação vermelha, o CA afetado e o ajuste feito |
+| `feedback/7-day-forecast-loop.md` | Preserva comandos, resultados e decisões da iteração |
+| `plans/weather-app-plan.md` | Recebe primeiro qualquer decisão causada por feedback vermelho |
+| Revalidação completa | Demonstra que o loop terminou em um estado coerente |
 
-> [!IMPORTANT]
-> O `feedback.md` é uma **prática documentada**, não um portão de CI. O workflow deste step valida o que realmente importa — que build, testes e E2E passam. O feedback é o que torna o *caminho até lá* rastreável.
+### ⌨️ Atividade: execute e registre o loop real
 
-### Mãos à obra: Rode o loop até tudo ficar verde
+1. Execute a validação do produto:
 
-**Parte A — Tire uma foto do estado atual das validações**
+   ```bash
+   pnpm lint
+   pnpm build
+   pnpm test
+   pnpm test:e2e
+   ```
 
-Rode as três validações e anote quais passam e quais reprovam. É o ponto de partida do loop:
-
-```bash
-pnpm build
-pnpm test
-pnpm test:e2e
-```
-
-Se as três já estiverem verdes, ótimo — mas **verde no que já existe não quer dizer que a spec está completa**. Verificar de verdade é também olhar o app com olhos de usuário e deixar o que faltou virar feedback. É o que a Parte C provoca.
-
-**Parte B — Crie o log de feedback**
-
-1. Crie a pasta `feedback/`.
-2. Crie o arquivo `feedback/weather-app-feedback.md`:
+2. No Explorer do VS Code, crie `feedback/7-day-forecast-loop.md` e cole o
+   template abaixo. Substitua todos os valores entre `<...>` pelas evidências da
+   sua execução; não registre um estado verde se o comando ficou vermelho:
 
    ```markdown
-   # Feedback Loop: Weather App
+   # Loop de feedback: previsão de 7 dias
 
-   > Log vivo do loop de implementação. Cada iteração registra qual validação
-   > reprovou, o critério de aceite afetado, onde estava a causa (spec / plano /
-   > task / código) e o ajuste feito. O loop encerra quando todas as validações
-   > passam.
+   ## Comandos e estados
 
-   ## Estado das validações
+   | Comando | Estado |
+   |---|---|
+   | `pnpm lint` | `<verde ou vermelho>` |
+   | `pnpm build` | `<verde ou vermelho>` |
+   | `pnpm test` | `<verde ou vermelho>` |
+   | `pnpm test:e2e` | `<verde ou vermelho>` |
 
-   | Validação | Comando | Status |
-   |---|---|---|
-   | Build | `pnpm build` | ⬜ pendente |
-   | Testes (unit/integração/componente) | `pnpm test` | ⬜ pendente |
-   | E2E | `pnpm test:e2e` | ⬜ pendente |
+   ## Evidências
 
-   ## Iterações
+   - `<resumo verificável da saída de lint e build>`
+   - `<quantidade de testes Vitest aprovados ou mensagem da falha>`
+   - `<quantidade de testes Playwright aprovados ou mensagem da falha>`
 
-   ### Iteração 1 — <data>
-   - **Validação que reprovou**: <ex.: `pnpm test` — `src/components/WeatherCard.test.tsx`>
-   - **Sintoma**: <mensagem/erro observado>
-   - **Critério de aceite afetado**: <ex.: CA5.4 — "primeiro dia rotulado 'Hoje'">
-   - **Onde estava a causa**: <spec | plano | task | código>
-   - **Ajuste**: <o que mudou e em qual artefato>
-   - **Reativou o plan agent?**: <sim/não — o que o replanejamento alterou em spec/plano/tasks>
-   - **Resultado da revalidação**: <✅ verde | ❌ ainda vermelho → próxima iteração>
+   ## Critérios afetados
 
-   <!-- Você preenche a Iteração 1 na Parte C; duplique o bloco a cada nova volta. -->
+   `<CA5.1, CA5.2, CA5.3 ou nenhum; explique a relação com eventual falha>`
+
+   ## Decisão de planejamento
+
+   `<seguir sem mudança porque tudo passou, ou registrar o diagnóstico e o
+   ajuste mínimo que precisa entrar primeiro no Plan>`
+
+   ## Artefatos alterados
+
+   `<nenhum, ou paths alterados após o replanejamento>`
+
+   ## Resultado da revalidação
+
+   `<comandos repetidos, estados finais e evidência de que o loop terminou>`
    ```
 
-**Parte C — Um feedback de verificação chega (a volta real do loop)**
+   Não delegue o preenchimento ao Copilot: o registro deve refletir os comandos
+   que você realmente executou.
 
-Até aqui, provavelmente tudo está verde. Mas verificar não é só rodar o que já existe — é olhar o app com olhos de usuário. Ao revisar a previsão de 7 dias, um feedback aparece: a lista mostra os dias da semana, mas **nada indica qual é hoje** — o usuário precisa contar. Isso é um requisito que faltava na spec. Em vez de "só mexer no CSS", trate como o loop manda: **vire teste, registre e replaneje**.
+3. Se houver vermelho, entregue ao planning agent o feedback junto de
+   `intentions/7-day-forecast.md`, spec, plano e tasks. A intenção permanece a
+   fonte do resultado desejado; o feedback é evidência observada e não a
+   substitui. Depois, abra `plans/weather-app-plan.md` e acrescente uma seção
+   `## Iteração por feedback` contendo: comando e sintoma, hipótese, decisão
+   mínima, artefatos derivados que precisam mudar e revalidação esperada.
+   Atualize Spec e Tasks somente quando a decisão alterar contrato ou trabalho.
+   Preserve IDs e só então corrija a implementação.
 
-1. Escreva o teste que captura a nova expectativa — é ele que fica **vermelho** e dispara o loop. Adicione a `src/components/WeatherCard.test.tsx` (garanta os imports de `render`/`screen` e do tipo `WeatherData` no topo do arquivo):
-
-   ```tsx
-   it("CA5.4: rotula o primeiro dia da previsão como 'Hoje'", () => {
-     const hoje = new Date().toISOString().slice(0, 10);
-     const data = {
-       location: { id: 1, name: "São Paulo", latitude: -23.5, longitude: -46.6, country: "Brasil", country_code: "BR" },
-       current: { temperature_2m: 20, apparent_temperature: 19, weather_code: 0, wind_speed_10m: 5, relative_humidity_2m: 60 },
-       daily: {
-         time: Array.from({ length: 7 }, (_, i) => {
-           const d = new Date(hoje);
-           d.setDate(d.getDate() + i);
-           return d.toISOString().slice(0, 10);
-         }),
-         temperature_2m_max: Array(7).fill(25),
-         temperature_2m_min: Array(7).fill(15),
-         weather_code: Array(7).fill(0),
-       },
-     } satisfies WeatherData;
-
-     render(<WeatherCard data={data} />);
-     expect(screen.getByText("Hoje")).toBeInTheDocument();
-   });
-   ```
-
-2. Rode e **confirme o vermelho** — a referência do Step 5 mostra o dia da semana (`weekday: "short"`), não "Hoje":
+4. Valide o próprio registro e a cadeia de rastreabilidade:
 
    ```bash
-   pnpm test
+   pnpm validate:sdd feedback
+   pnpm validate:sdd full
    ```
 
-3. Registre a Iteração 1 no `feedback.md` e marque `pnpm test` como ❌ na tabela **Estado das validações**. O loop começou.
+   Se um desses comandos ficar vermelho, acrescente o resultado ao feedback e
+   aplique a mesma regra de replanejamento.
 
-**Parte D — Reative o plan agent e replaneje**
+5. Repita até ficar verde. Cada volta recebe uma nova seção no log.
 
-Repare: o feedback aponta para a **spec**, não para um bug de código — falta um critério. É justamente o tipo de mudança que **não** deve ser remendada direto no `WeatherCard`. Abra o Copilot Chat em modo **agent** e peça:
-
-```text
-Você é o Technical Planner de .github/agents/plan.agent.md, em modo
-re-planejamento. Um feedback de verificação (registrado em
-feedback/weather-app-feedback.md) revelou um critério ausente: na previsão de 7
-dias, o dia de hoje deve ser rotulado "Hoje" em vez do dia da semana. Propague
-essa mudança pelos artefatos, com o menor impacto: (1) adicione CA5.4 à F5 em
-specs/weather-app-spec.md; (2) mapeie CA5.4 → teste de componente em
-plans/weather-app-plan.md; (3) estenda a task T7 em tasks/weather-app-tasks.md;
-(4) só então ajuste src/components/WeatherCard.tsx para rotular o dia 0 como
-"Hoje". Não introduza nada além disso.
-```
-
-Aplique o ajuste no código: o dia 0 vira "Hoje"; os demais seguem com o dia da semana.
-
-<details>
-<summary>Implementação de referência (o ajuste do loop)</summary><br/>
-
-Em `src/components/WeatherCard.tsx`, troque o rótulo do dia dentro do `.map`:
-
-```tsx
-<span className="w-12 font-medium">
-  {i === 0
-    ? "Hoje"
-    : new Date(day).toLocaleDateString("pt-BR", { weekday: "short" })}
-</span>
-```
-
-Em `specs/weather-app-spec.md`, sob **F5**, acrescente o critério que nasceu do feedback:
-
-```markdown
-- CA5.4: DADO a previsão de 7 dias, ENTÃO o primeiro dia (hoje) é rotulado "Hoje" em vez do dia da semana
-```
-
-E em `plans/weather-app-plan.md`, no mapeamento spec → teste, adicione a linha `CA5.4 | Component | src/components/WeatherCard.test.tsx`.
-
-</details>
-
-**Parte E — Revalide, repita e feche o loop**
-
-1. Rode de novo as três validações:
+6. Commit e push de tudo que o loop tocou:
 
    ```bash
-   pnpm build && pnpm test && pnpm test:e2e
+   git add feedback/ specs/ plans/ tasks/ src/ e2e/
+   git commit -m "step 8: close seven-day forecast feedback loop"
+   git push
    ```
 
-2. Ainda vermelho em algum critério? Abra uma nova "Iteração N" no `feedback.md` e volte à Parte D. Tudo verde? Atualize a tabela **Estado das validações** para ✅.
-
-3. Faça commit e push do que o loop tocou — repare que ele atravessou **todos os níveis**, não só o código:
-
-   ```bash
-   git add feedback/ specs/ plans/ tasks/ src/
-   git commit -m "step 8: feedback loop — CA5.4 (rótulo 'Hoje') via replanejamento"
-   git push origin weather-app
-   ```
-
-> [!TIP]
-> Se o loop não converge depois de 2–3 iterações num mesmo critério, o problema raramente está no código — está na **spec ambígua**. Volte um nível: refine o critério de aceite, e deixe o plano e as tasks derivarem dele de novo.
+> [!IMPORTANT]
+> Se tudo estiver verde na primeira tentativa, isso não é um atalho nem uma
+> falha do exercício. Registre a iteração verde; não introduza um defeito
+> artificial apenas para percorrer o caminho vermelho.
 
 ### Checkpoint
 
-O Step 8 é aprovado quando:
-
-- [ ] `feedback/weather-app-feedback.md` registra ao menos **uma iteração real** do loop (o CA5.4)
-- [ ] O CA5.4 foi propagado para a **spec, o plano e as tasks** — não só para o código
-- [ ] `pnpm build` passa
-- [ ] `pnpm test` passa (incluindo o novo teste do CA5.4)
-- [ ] `pnpm test:e2e` passa
-
-O loop convergiu: um feedback de verificação virou teste vermelho, subiu até a spec pelo `plan.agent.md`, desceu de volta como plano → task → código, e revalidou verde. Esse vaivém — e não a primeira implementação — é o que mantém spec e código coerentes. Agora sim, pronto para o review rastreável e o ship.
+- [ ] O log registra uma validação real, mesmo que verde na primeira tentativa.
+- [ ] Qualquer vermelho voltou ao Plan antes da implementação.
+- [ ] Toda a suíte e a rastreabilidade estão verdes.
+- [ ] Não existe correção sem decisão registrada no Plan.
 
 ### Em outras ferramentas
 
-| Ferramenta | Como trata o loop de feedback |
+| Ferramenta | Como trata feedback |
 |---|---|
-| **spec-kit** | O resultado de uma validação retroalimenta o `/plan` e o `/implement`; o histórico de decisões e correções fica registrado junto ao plano |
-| **OpenSpec** | Um teste que reprova vira um *change proposal* que atualiza a spec/plano antes do código; nada é corrigido "por fora" da spec |
-| **BMAD-METHOD** | O agente "QA" devolve feedback estruturado ao agente "Dev", que reimplementa; ajustes de escopo sobem para o "Architect" replanejar |
+| **spec-kit** | Clarificações e novo planejamento atualizam os artefatos antes da implementação |
+| **OpenSpec** | O delta permanece aberto e evolui até passar pela validação |
+| **BMAD-METHOD** | Feedback de validação retorna à story e aos artefatos de planejamento |
 
 <details>
-<summary>Problemas?</summary><br/>
+<summary>Having trouble? 🤷</summary><br/>
 
-- **"O workflow não disparou"**: confirme que você fez push de algo em `feedback/**` ou `src/**` na branch `weather-app` (o workflow ignora pushes para `main`).
-- **"O loop não converge"**: registre cada tentativa no `feedback.md` — ver o mesmo critério de aceite falhar em iterações seguidas é o sinal de que a causa está na spec, não no código.
-- **"Corrigi no código e passou, preciso mesmo do feedback.md?"**: o `feedback.md` não é burocracia — é o que mantém plano, tasks e código coerentes com a spec. Uma correção que não volta ao plano é uma divergência esperando para reaparecer.
+- **Tudo passou de primeira**: registre os comandos, resultados e a decisão de
+   seguir para review.
+- **Um teste falhou**: copie o sintoma para o log, associe o CA afetado e
+   registre a decisão no Plan antes de alterar código.
+- **O plano não precisou mudar**: registre explicitamente a análise e a decisão;
+   feedback não exige mudança artificial, mas exige raciocínio visível.
+- **`validate:sdd full` falhou**: use a âncora indicada para localizar a quebra
+   entre spec, plano, tasks e evidência de teste.
+- **O workflow não iniciou**: confirme que a branch atual não é `main` e que o
+   commit contém `feedback/7-day-forecast-loop.md`. Continue em
+   `feature/7-day-forecast` para preservar o fluxo até o PR.
 
 </details>

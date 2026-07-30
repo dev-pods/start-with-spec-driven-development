@@ -6,8 +6,7 @@ on:
     branches-ignore:
       - main
     paths:
-      - "plans/**"
-      - ".github/agents/**"
+      - "plans/weather-app-plan.md"
 
 permissions:
   contents: read
@@ -33,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get response templates
         uses: actions/checkout@v6
@@ -60,35 +61,30 @@ jobs:
 
       # START: Check practical exercise
 
-      - name: Check plan exists
-        id: check-plan-exists
+      - name: Check plan changed from baseline
+        id: check-plan-diff
         continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
-        with:
-          file: plans/weather-app-plan.md
+        run: |
+          if git diff --quiet origin/main...HEAD -- plans/weather-app-plan.md; then
+            echo "O plano não mudou em relação à baseline"
+            exit 1
+          else
+            diff_exit=$?
+            test "$diff_exit" -eq 1 || exit "$diff_exit"
+          fi
 
-      - name: Check planning agent exists
-        id: check-agent-exists
-        continue-on-error: true
-        uses: skills/exercise-toolkit/actions/file-exists@v0.9.1
-        with:
-          file: .github/agents/plan.agent.md
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Check for "Arquitetura"
-        id: check-architecture
-        continue-on-error: true
-        uses: skills/action-keyphrase-checker@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          text-file: plans/weather-app-plan.md
-          keyphrase: "Arquitetura"
+          node-version-file: ".nvmrc"
 
-      - name: Check for "Estratégia de testes"
-        id: check-test-strategy
+      - name: Validate plan traceability
+        id: validate-plan
         continue-on-error: true
-        uses: skills/action-keyphrase-checker@v1
-        with:
-          text-file: plans/weather-app-plan.md
-          keyphrase: "Estratégia de testes"
+        run: pnpm validate:sdd plan
 
       - name: Update comment - step results
         uses: GrantBirki/comment@v2.1.1
@@ -101,14 +97,10 @@ jobs:
           vars: |
             step_number: 3
             results_table:
-              - description: "Verificou se plans/weather-app-plan.md existe"
-                passed: ${{ steps.check-plan-exists.outcome == 'success' }}
-              - description: "Verificou se .github/agents/plan.agent.md existe"
-                passed: ${{ steps.check-agent-exists.outcome == 'success' }}
-              - description: "Verificou a seção 'Arquitetura'"
-                passed: ${{ steps.check-architecture.outcome == 'success' }}
-              - description: "Verificou a seção 'Estratégia de testes'"
-                passed: ${{ steps.check-test-strategy.outcome == 'success' }}
+              - description: "Atualizou o plano em relação à baseline"
+                passed: ${{ steps.check-plan-diff.outcome == 'success' }}
+              - description: "Mapeou CA5 para arquitetura e testes"
+                passed: ${{ steps.validate-plan.outcome == 'success' }}
 
       # END: Check practical exercise
 

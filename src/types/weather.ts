@@ -22,12 +22,6 @@ export interface WeatherData {
     wind_speed_10m: number;
     relative_humidity_2m: number;
   };
-  daily: {
-    time: string[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];
-    weather_code: WmoCode[];
-  };
 }
 
 /** Estado de uma requisição assíncrona */
